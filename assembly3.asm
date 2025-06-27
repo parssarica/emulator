@@ -1,0 +1,21 @@
+tgl 1
+tgl 2
+tgl 5
+tgl 6
+tgl 9
+tgl 10
+tgl 13
+tgl 14
+tgl 17
+tgl 18
+tgl 21
+tgl 22
+tgl 31
+tgl 39
+tgl 32
+tgl 48
+tgl 41
+tgl 49
+tgl 42
+tgl 50
+halt
