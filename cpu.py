@@ -220,24 +220,34 @@ def pop_stack(accumulator):
 instructions = []
 
 debug_mode = False
-file_index = 1
 try:
-    if sys.argv[1] == "-d":
-        debug_mode = True
-        file_index = 2
-    if sys.argv[2] == "-d":
-        debug_mode = True
-except:
-    pass
-
-try:
-    with open(sys.argv[file_index], "rt") as f:
-        instructions = f.readlines()
-except:
-    print(f"Usage: {sys.argv[0]} <FILE>")
-    instructions.append("halt")
+    with open("config.toml", "rt") as f:
+        lines = f.readlines()
+except FileNotFoundError:
+    print("Create a config.toml file to specify the settings.")
+    sys.exit(1)
 
 entry_point = 0
+cpu_type = ""
+for line in lines:
+    if line == "[config]":
+        pass
+    match(line.split("=")[0].strip()):
+        case "cpu_type":
+            cpu_type = line.split("=")[1].strip().replace("\"", "")
+        case "debug_mode":
+            debug_mode = True if line.split("=")[1].strip() == "1" else False
+        case "entry_point":
+            entry_point = int(line.split("=")[1].strip(), 16)
+        case "file":
+            file = line.split("=")[1].strip().replace("\"", "")
+            try:
+                with open(file, "rt") as f:
+                    instructions = f.readlines()
+            except:
+                print(f"File {file} not found.")
+                instructions.append("halt")
+
 j = entry_point
 for i in instructions:
     instructions[j] = i.strip().replace(",", "").lower()
