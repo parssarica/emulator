@@ -2,6 +2,9 @@
 
 import sys
 import ast
+import ctypes
+import sdl2
+import sdl2.ext
 
 z_flag = False
 registers = {"A":  0,
@@ -229,6 +232,7 @@ except FileNotFoundError:
 
 entry_point = 0
 cpu_type = ""
+create_screen = False
 for line in lines:
     if line == "[config]":
         pass
@@ -247,6 +251,8 @@ for line in lines:
             except:
                 print(f"File {file} not found.")
                 instructions.append("halt")
+        case "create_screen":
+            create_screen = True if line.split("=")[1].strip() == "1" else False
 
 j = entry_point
 for i in instructions:
@@ -258,8 +264,103 @@ set_register_value("PC", entry_point)
 function = False
 ins = ""
 
+if create_screen:
+    sdl2.ext.init()
+    window = sdl2.ext.Window("Commodore 64 Emulator", size=(320,200))
+    window.show()
+    renderer=sdl2.SDL_CreateRenderer(window.window, -1, 0)
+    texture = sdl2.SDL_CreateTexture(renderer, sdl2.SDL_PIXELFORMAT_ARGB8888, sdl2.SDL_TEXTUREACCESS_STREAMING, 320, 200)
+    event = sdl2.SDL_Event()
+
+exit_code = -1
 
 while instructions[get_register_value("PC")] != "halt":
+    if create_screen:
+        while sdl2.SDL_PollEvent(ctypes.byref(event)) != 0:
+            if event.type == sdl2.SDL_QUIT:
+                instructions = ["halt"]
+                set_register_value("PC", 0)
+        pixels = ctypes.c_void_p()
+        pitch = ctypes.c_int()
+        sdl2.SDL_LockTexture(texture, None, ctypes.byref(pixels), ctypes.byref(pitch))
+        pixel_ptr = ctypes.cast(pixels, ctypes.POINTER(ctypes.c_uint32))
+        for y in range(200):
+            for x in range(320):
+                match(memory[0xd000 + y*200 + x]):
+                    case 0x00:
+                        red = 0
+                        green = 0
+                        blue = 0
+                    case 0x01:
+                        red = 255
+                        green = 255
+                        blue = 255
+                    case 0x02:
+                        red = 0x88
+                        green = 0
+                        blue = 0
+                    case 0x03:
+                        red = 0xaa
+                        green = 0xff
+                        blue = 0xee
+                    case 0x04:
+                        red = 0xcc
+                        green = 0x44
+                        blue = 0xcc
+                    case 0x05:
+                        red = 0x0
+                        green = 0xcc
+                        blue = 0x55
+                    case 0x06:
+                        red = 0
+                        green = 0
+                        blue = 0xaa
+                    case 0x07:
+                        red = 0xee
+                        green = 0xee
+                        blue = 0x77
+                    case 0x08:
+                        red = 0xdd
+                        green = 0x88
+                        blue = 0x55
+                    case 0x09:
+                        red = 0x66
+                        green = 0x44
+                        blue = 0
+                    case 0x0A:
+                        red = 0xff
+                        green = 0x77
+                        blue = 0x77
+                    case 0x0B:
+                        red = 0x33
+                        green = 0x33
+                        blue = 0x33
+                    case 0x0C:
+                        red = 0x77
+                        green = 0x77
+                        blue = 0x77
+                    case 0x0D:
+                        red = 0xaa
+                        green = 0xff
+                        blue = 0x66
+                    case 0x0E:
+                        red = 0x00
+                        green = 0x88
+                        blue = 0xff
+                    case 0x0F:
+                        red = 0xbb
+                        green = 0xbb
+                        blue = 0xbb
+                    case _:
+                        red = 0
+                        green = 0
+                        blue = 0
+                        
+                color = (255 << 24) | (red << 16) | (green << 8) | blue
+                pixel_ptr[y * (pitch.value // 4) + x]
+        sdl2.SDL_RenderClear(renderer)
+        sdl2.SDL_RenderCopy(renderer, texture, None, None)
+        sdl2.SDL_RenderPresent(renderer)
     if function:
         functions[-1].instructions.append(memory[get_register_value("PC")])
         set_register_value("PC", get_register_value("PC") + 1)
@@ -374,163 +475,6 @@ while instructions[get_register_value("PC")] != "halt":
             flags["I"] = True
         case "clv":
             flags["V"] = False
-        case "add":
-            if alu("+", arg_1, arg_2) == None:
-                print("Wrong use of instruction add\nInstruction pointer:", get_register_value("PC"))
-                break
-        case "sub":
-            if alu("-", arg_1, arg_2) == None:
-                print("Wrong use of instruction sub\nInstruction pointer:", get_register_value("PC"))
-                break
-        case "mul":
-            if alu("*", arg_1, arg_2) == None:
-                print("Wrong use of instruction mul\nInstruction pointer:", get_register_value("PC"))
-                break
-        case "div":
-            if alu("/", arg_1, arg_2) == None:
-                print("Wrong use of instruction div\nInstruction pointer:", get_register_value("PC"))
-                break
-        case "and":
-            if alu("AND", arg_1, arg_2) == None:
-                print("Wrong use of instruction and\nInstruction pointer:", get_register_value("PC"))
-                break
-        case "or":
-            if alu("OR", arg_1, arg_2) == None:
-                print("Wrong use of instruction or\nInstruction pointer:", get_register_value("PC"))
-                break
-        case "xor":
-            if alu("XOR", arg_1, arg_2) == None:
-                print("Wrong use of instruction xor\nInstruction pointer:", get_register_value("PC"))
-                break
-        case "not":
-            if alu("NOT", arg_1, arg_2) == None:
-                print("Wrong use of instruction not\nInstruction pointer:", get_register_value("PC"))
-                break
-        case "nand":
-            if alu("NAND", arg_1, arg_2) == None:
-                print("Wrong use of instruction nand\nInstruction pointer:", get_register_value("PC"))
-                break
-        case "nor":
-            if alu("NOR", arg_1, arg_2) == None:
-                print("Wrong use of instruction nor\nInstruction pointer:", get_register_value("PC"))
-                break
-        case "nxor":
-            if alu("NXOR", arg_1, arg_2) == None:
-                print("Wrong use of instruction nxor\nInstruction pointer:", get_register_value("PC"))
-                break
-        case "jmp":
-            if arg_1 in ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp"]:
-                set_register_value("PC", get_register_value(arg_1))
-            else:
-                set_register_value("PC", int(arg_1))
-            if debug_mode:
-                show_registers()
-            continue
-        case "cmp":
-            if arg_1 not in ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp"] or arg_2 not in ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp"]:
-                print("Instruction pointer:", str(get_register_value("PC")) + "\nWrong use of instruction \"cmp\"")
-                break
-            if get_register_value(arg_1) == get_register_value(arg_2):
-                z_flag = True
-            else:
-                z_flag = False
-        case "je":
-            if z_flag:
-                if arg_1 in ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp"]:
-                    set_register_value("PC", get_register_value(arg_1))
-                else:
-                    set_register_value("PC", int(arg_1))
-                if debug_mode:
-                    show_registers()
-                continue
-        case "jne":
-            if not z_flag:
-                if arg_1 in ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp"]:
-                    set_register_value("PC", get_register_value(arg_1))
-                else:
-                    set_register_value("PC", int(arg_1))
-                if debug_mode:
-                    show_registers()
-                continue
-        case "inc":
-            set_register_value(arg_1, get_register_value(arg_1) + 1)
-        case "dec":
-            set_register_value(arg_1, get_register_value(arg_1) - 1)
-        case "fnc":
-            function = True
-            functions.append(Function(arg_1, instruction_pointer))
-        case "call":
-            stack.append(instruction_pointer)
-            set_register_value("rsp", get_register_value("rsp") + 1)
-            stack.append(get_register_value("rbp"))
-            set_register_value("rsp", get_register_value("rsp") + 1)
-            set_register_value("rbp", get_register_value("rsp"))
-            for fnc in functions:
-                if fnc.name == arg_1:
-                    fnc_calling = fnc
-                    instruction_pointer = fnc_calling.instruction_address
-                    break
-        case "ret":
-            if arg_1 in ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "rsp"]:
-                set_register_value("rax", get_register_value(arg_1))
-            else:
-                set_register_value("rax", int(arg_1))
-            while True:
-                if len(stack) > (get_register_value("rbp") + 1):
-                    stack.pop()
-                else:
-                    break
-            set_register_value("rsp", get_register_value("rbp"))
-            set_register_value("rbp", stack.pop())
-            instruction_pointer = stack.pop() + 1
-            set_register_value("rsp", get_register_value("rsp") - 2)
-        case "push":
-            push_stack(get_register_value(arg_1))
-        case "pop":
-            set_register_value(arg_1, pop_stack())
-        case "gip":
-            set_register_value("rax", instruction_pointer)
-        case "int":
-            if arg_1 != "80":
-                print("Instruction pointer:", str(instruction_pointer) + "\nWrong use of instruction \"int\"")
-            if get_register_value("rax") == 4:
-                count = get_register_value("rcx")
-                msg = b""
-                try:
-                    while count < (get_register_value("rcx") + get_register_value("rdx")):
-                        msg = msg + bytes([memory[count]])
-                        count += 1
-                except:
-                    pass
-
-                for i in msg:
-                    sys.stdout.write(chr(i))
-                    sys.stdout.flush()
-            elif get_register_value("rax") == 3:
-                line = ""
-                for i in sys.stdin:
-                    line += i
-                    if i[-1] == '\n':
-                        break
-                line = line.rstrip()[:get_register_value("rdx")]
-                counter = get_register_value("rcx")
-                for i in line:
-                    memory = memory[:counter] + bytes([ord(i)]) + memory[counter+1:]
-                    counter += 1
-            elif get_register_value("rax") == 1:
-                sys.exit(get_register_value("rbx"))
-        case ".store":
-            mem_list = list(memory)
-            bytes_to_store = ast.literal_eval("b" + arg_1)
-            for i in bytes_to_store:
-                mem_list[heap_end] = i
-                heap_end += 1
-            memory = bytes(mem_list)
-            heap += ast.literal_eval("b" + arg_1)
-        case "loop":
-            if get_register_value("rcx") != 0:
-                set_register_value("rcx", get_register_value("rcx") - 1)
-                instruction_pointer = int(arg_1) - 1
         case _:
             if ins != "nop":
                 print("Program counter:", str(get_register_value("PC")) + "\nUnknown instruction:", ins)
@@ -542,4 +486,9 @@ while instructions[get_register_value("PC")] != "halt":
     if ins == "halt" or get_register_value("PC") == len(instructions):
         break
 
-sys.exit(-1)
+if create_screen:
+    sdl2.SDL_DestroyTexture(texture)
+    sdl2.SDL_DestroyRenderer(renderer)
+    sdl2.ext.quit()
+
+sys.exit(exit_code)
